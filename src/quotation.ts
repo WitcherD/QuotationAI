@@ -94,11 +94,11 @@ const pricingSubgraph = pricingSubgraphBuilder.compile({ checkpointer: memory })
 async function getUserInput(state: typeof QuotationAnnotation.State): Promise<Partial<typeof QuotationAnnotation.State>> {
     
     const userInput = 'move-out cleaning';
-
-    const collectionName = process.env.QDRANT_COLLECTION || "demo";
     const qdrantService = QdrantService.getInstance();
     
-    const results = await qdrantService.similaritySearch(userInput, 2, collectionName);
+    const results = await qdrantService.similaritySearch(userInput, 2, process.env.QDRANT_COLLECTION!, {
+        "metadata": { "date_time_scheduling_rule": { "$exists": false } }
+    });
     const knowledgeBase = results.map(doc => doc.pageContent).join("\n");
 
     return {

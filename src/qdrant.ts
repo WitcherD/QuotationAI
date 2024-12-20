@@ -6,7 +6,7 @@ import { traceable } from "langsmith/traceable";
 
 export class QdrantService {
     private static instance: QdrantService;
-    private client: QdrantClient;
+    public client: QdrantClient;
     private embeddings: OpenAIEmbeddings;
     
     private url = process.env.QDRANT_URL;
@@ -36,7 +36,7 @@ export class QdrantService {
         try {
             await this.client.createCollection(collectionName, {
                 vectors: {
-                    size: 1536, // Size for text-embedding-3-small
+                    size: 1536,
                     distance: "Cosine"
                 }
             });
@@ -59,10 +59,10 @@ export class QdrantService {
         console.log("Successfully added documents to Qdrant");
     }
 
-    public async similaritySearch(query: string, k: number, collectionName: string): Promise<Document[]> {
+    public async similaritySearch(query: string, k: number, collectionName: string, filter?: object): Promise<Document[]> {
         const vectorStore = await this.getVectorStore(collectionName);
-        const retrieveDocs = traceable((query: string) => vectorStore.similaritySearch(query, k), { name: "retrieveDocs", run_type: "retriever" });
-        return await retrieveDocs(query);
+        const retrieveDocs = traceable((query: string, filter?: object) => vectorStore.similaritySearch(query, k, filter), { name: "retrieveDocs", run_type: "retriever" });
+        return await retrieveDocs(query, filter);
     }
 
     public async hasDocuments(collectionName: string): Promise<boolean> {
