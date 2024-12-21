@@ -48,11 +48,6 @@ const SchedulingAnnotation = Annotation.Root({
     }),
 });
 
-function init(): Partial<typeof SchedulingAnnotation.State> {
-    console.log("init: start");
-    return {};
-}
-
 async function extractRulesFromQdrant(): Promise<Partial<typeof SchedulingAnnotation.State>> {
     console.log("rulesExtractorFromQdrant: start");
     try {
@@ -80,36 +75,37 @@ async function generatePythonValidationCode(state: typeof SchedulingAnnotation.S
     console.log("pythonValidationCodeGeneration: start");
     try {
         const systemPrompt =
-            `Your task is to transform company rules into Python validation method.
+            `Your task is to transform company rules into a Python validation method.
 
 ## Instructions:
-- You are allowed to use the "datetime" and "calendar" packages only.
-- You are allowed to add additional private methods to make the validation logic more readable.
-- Return only the method definition without any import statements. 
-- All input parameters will be provided in GMT+8 timezone. 
-- All parameters are optional (can be None), meaning you should only perform rule validation only if a value is provided.
-- Always check parameters for None. Each rule should have have conditions checking for None.
-- The method should return a list of strings representing validation errors. If there are no errors, return an empty list.
-- Frequency can be "Adhoc", "Daily", "Weekly", "Monthly".
-- No output logs.
+- You are only allowed to use the "datetime" and "calendar" packages.
+- You can add private helper methods to simplify and organize the validation logic.
+- Return only the method definition without any import statements or additional code.
+- All input parameters will be provided in GMT+8 timezone.
+- All parameters are optional (can be None). Perform rule validation only if the relevant parameter is provided.
+- Always check each parameter for None before applying validation logic.
+- The method should return a list of strings representing validation errors. If no errors are found, return an empty list.
+- Frequency can take one of the following values: "Adhoc", "Daily", "Weekly", "Monthly".
+- Do not include any logging or print statements.
 
-## Method description:
-Method name: "validateCustomerSchedulingParameters"
+## Method Details:
+Method name: \`validateCustomerSchedulingParameters\`
 Method arguments:
-    year: int or None
-    month: int or None
-    day: int or None
-    hour: int or None
-    minute: int or None
-    duration_hours: float or None
-    frequency: str or None
+    - year: int or None
+    - month: int or None
+    - day: int or None
+    - hour: int or None
+    - minute: int or None
+    - duration_hours: float or None
+    - frequency: str or None
 Method output: list[str]
 
-Example:
-<example_input>
+## Example:
+
+## Input: 
 { "validationRules": [ "Can't book an appointment less than 48 hours in advance for new clients.", "Appointments can only be booked up to 3 months in advance."] }
-</example_input>
-<example_output>
+
+### Output:
 def validateCustomerSchedulingParameters(year=None, month=None, day=None, hour=None, minute=None, duration_hours=None, frequency=None):
     errors = []
     
@@ -129,9 +125,10 @@ def validateCustomerSchedulingParameters(year=None, month=None, day=None, hour=N
             errors.append("Appointments can only be booked up to 3 months in advance.")
     
     return errors
-</output>
 
-Don't format output. Return plain text python code.`;
+## Notes
+Ensure the output is plain Python code without any formatting or additional explanations.`;
+
         const messages = [
             new SystemMessage(systemPrompt),
             new HumanMessage(JSON.stringify({ validationRules: state.schedulingRules })),
@@ -148,63 +145,61 @@ Don't format output. Return plain text python code.`;
 async function tranformUserInputIntoPython(state: typeof SchedulingAnnotation.State): Promise<Partial<typeof SchedulingAnnotation.State>> {
     console.log("tranformUserInputIntoPython: start");
     try {
-        const systemPrompt = `Your task is to transform text into python code which returns datetime parameters from user input.
-## Instructions:
-- You are allowed to use the "datetime" and "calendar" packages only. 
-- You are allowed to add additional private methods to make the validation logic more readable.
-- Return only the method definition without any import statements. 
-- All input parameters will be provided in GMT+8 timezone. 
-- The method should return a json object with the following keys: "appointment_date", "appointment_month", "appointment_year", "appointment_time_hour", "appointment_time_minute", "duration_hours", "frequency".
-- All keys are required. You should only extract values if they are present in the text, otherwise set them to None.
-- Frequency can be "Adhoc", "Daily", "Weekly", "Monthly".
-- No output logs.
+        const systemPrompt = `Your task is to transform natural language text into Python code that extracts datetime-related scheduling parameters from user input.  
 
-## Method description:
-Method name: "getCustomerSchedulingParameters"
-Method arguments: No arguments
-Method output: json object
+## Instructions:  
+- You are allowed to use only the "datetime" and "calendar" libraries.  
+- You can define additional private helper methods to improve code readability and modularize validation logic.  
+- Do not include any import statements in the output.  
+- Assume all input timestamps are provided in the GMT+8 timezone. Adjust calculations accordingly.  
+- The output should be a single method definition with the following characteristics:  
+  - Method name: \`getCustomerSchedulingParameters\`  
+  - Arguments: None  
+  - Return: A JSON object with the keys:  
+    - \`appointment_date\`: The day of the month (integer or \`None\`).  
+    - \`appointment_month\`: The month of the year (integer or \`None\`).  
+    - \`appointment_year\`: The year (integer or \`None\`).  
+    - \`appointment_time_hour\`: The hour of the day in 24-hour format (integer or \`None\`).  
+    - \`appointment_time_minute\`: The minute of the hour (integer or \`None\`).  
+    - \`duration_hours\`: The duration of the appointment in hours (float or \`None\`).  
+    - \`frequency\`: The recurrence of the appointment. Can be \`"Adhoc"\`, \`"Daily"\`, \`"Weekly"\`, or \`"Monthly"\` (string or \`None\`).  
 
-Example:
-<example_input>
-I want to book an appointment for next monday at 2pm for 2.5 hours
-</example_input>
-<example_output>
-def get_next_monday():
-    """Returns the date of the next Monday."""
-    from datetime import datetime
-    current_time = datetime.utcnow() + timedelta(hours=8)  # Adjusting to GMT+8
-    today = current_time.date()
-    today_weekday = today.weekday()  # Monday is 0, Sunday is 6
-    days_until_monday = (7 - today_weekday + 0) % 7 #0 is for monday. using modulo operator for correct calculation
-    next_monday = today + datetime.timedelta(days=days_until_monday)
-    return next_monday
+- If a specific value is not found in the text, return \`None\` for that field.  
+- Focus only on extracting values explicitly mentioned in the input text; do not make assumptions.  
+- Do not include print statements or logging in the output.  
 
-def getCustomerSchedulingParameters():
-    """
-    Returns scheduling parameters in GMT+8 timezone.
+## Example:  
 
-    Returns a dictionary with the following keys (all required):
-        appointment_date: Day of the month (int or None)
-        appointment_month: Month of the year (int or None)
-        appointment_year: Year (int or None)
-        appointment_time_hour: Hour of the day (int or None) - 24-hour format
-        appointment_time_minute: Minute of the hour (int or None)
-        duration_hours: Duration of the appointment (float or None)
-        frequency: Frequency of the appointment (string or None) - "Adhoc", "Daily", "Weekly", "Monthly"
-    """
-    next_monday = get_next_monday()
-    return {
-        "appointment_date": next_monday.day,
-        "appointment_month": next_monday.month,
-        "appointment_year": next_monday.year,
-        "appointment_time_hour": 14,
-        "appointment_time_minute": 0,
-        "duration_hours": 2.5,
-        "frequency": "Adhoc"
+### Input:  
+"I want to book an appointment for next Monday at 2pm for 2.5 hours."  
+
+### Output:  
+def getCustomerSchedulingParameters():  
+    """Extracts and returns scheduling parameters from user input in GMT+8 timezone.  
+    
+    Returns:  
+        A JSON object with the required scheduling parameters.  
+    """  
+    def _get_next_monday():  
+        """Helper function to calculate the date of the next Monday."""  
+        current_time = datetime.utcnow() + timedelta(hours=8)  # Adjust to GMT+8  
+        today = current_time.date()  
+        days_until_monday = (7 - today.weekday() + 0) % 7  # Monday is 0  
+        return today + timedelta(days=days_until_monday)  
+    
+    next_monday = _get_next_monday()  
+    return {  
+        "appointment_date": next_monday.day,  
+        "appointment_month": next_monday.month,  
+        "appointment_year": next_monday.year,  
+        "appointment_time_hour": 14,  
+        "appointment_time_minute": 0,  
+        "duration_hours": 2.5,  
+        "frequency": "Adhoc"  
     }
-</example_output>
 
-Don't format output. Return plain text python code.`;
+### Notes:
+Ensure the output is plain Python code without any formatting or additional explanations.`;
         const messages = [
             new SystemMessage(systemPrompt),
             new HumanMessage(state.customerInquiry),
